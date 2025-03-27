@@ -26,7 +26,21 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
+    allowedHosts: true as const,
+  };
+
+  // Override the crypto module for Vite
+  const originalCrypto = global.crypto;
+  global.crypto = {
+    ...originalCrypto,
+    getRandomValues: (arr: any) => {
+      if (arr instanceof Uint8Array) {
+        for (let i = 0; i < arr.length; i++) {
+          arr[i] = Math.floor(Math.random() * 256);
+        }
+      }
+      return arr;
+    },
   };
 
   const vite = await createViteServer({
@@ -42,6 +56,9 @@ export async function setupVite(app: Express, server: Server) {
     server: serverOptions,
     appType: "custom",
   });
+
+  // Restore the original crypto
+  global.crypto = originalCrypto;
 
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
